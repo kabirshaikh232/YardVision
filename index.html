@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Yard Vision</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+
+    .sidebar { width: 200px; background: #0d1224; border-right: 1px solid #1a2040; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+    .sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid #1a2040; }
+    .sidebar-logo h2 { color: #00e5a0; font-size: 1.1rem; font-weight: 700; }
+    .sidebar-logo p { color: #4a5580; font-size: 0.7rem; margin-top: 2px; }
+    .nav-section { padding: 16px 0; }
+    .nav-label { padding: 0 20px 6px; font-size: 0.62rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1.5px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; color: #6b7aaa; font-size: 0.82rem; transition: all 0.2s; border-left: 3px solid transparent; }
+    .nav-item:hover { color: #e0e0e0; background: #111830; }
+    .nav-item.active { color: #00e5a0; border-left-color: #00e5a0; background: #111830; }
+    .nav-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .sidebar-bottom { margin-top: auto; padding: 14px 20px; border-top: 1px solid #1a2040; }
+    .override-btn { width: 100%; padding: 8px; background: transparent; border: 1px solid #2a3560; color: #6b7aaa; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+    .override-btn:hover { border-color: #f97316; color: #f97316; }
+
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { background: #0d1224; border-bottom: 1px solid #1a2040; padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .topbar-left h1 { font-size: 1rem; color: #00e5a0; font-weight: 600; }
+    .topbar-divider { width: 1px; height: 20px; background: #1a2040; }
+    .status-pill { display: flex; align-items: center; gap: 5px; background: #0a1f14; border: 1px solid #00e5a0; border-radius: 20px; padding: 3px 10px; font-size: 0.7rem; color: #00e5a0; }
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; background: #00e5a0; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .topbar-right { font-size: 0.75rem; color: #4a5580; }
+    .topbar-right span { color: #e0e0e0; margin-left: 6px; }
+
+    .content { flex: 1; overflow-y: auto; padding: 16px 24px; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+    .metric-card { background: #0d1224; border: 1px solid #1a2040; border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+    .metric-card::after { content: ''; position: absolute; top: 0; right: 0; width: 50px; height: 50px; border-radius: 0 10px 0 50px; opacity: 0.08; }
+    .metric-card.green::after { background: #00e5a0; }
+    .metric-card.blue::after { background: #4a9eff; }
+    .metric-card.purple::after { background: #a855f7; }
+    .metric-card.orange::after { background: #f97316; }
+    .metric-label { font-size: 0.65rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .metric-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .metric-card.green .metric-value { color: #00e5a0; }
+    .metric-card.blue .metric-value { color: #4a9eff; }
+    .metric-card.purple .metric-value { color: #a855f7; }
+    .metric-card.orange .metric-value { color: #f97316; }
+    .metric-sub { font-size: 0.68rem; color: #4a5580; margin-top: 4px; }
+    .metric-icon { position: absolute; top: 12px; right: 12px; font-size: 1.2rem; opacity: 0.5; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+    .panel { background: #0d1224; border: 1px solid #1a2040; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+    .panel-header { padding: 12px 16px; border-bottom: 1px solid #1a2040; display: flex; align-items: center; justify-content: space-between; }
+    .panel-title { font-size: 0.8rem; font-weight: 600; color: #e0e0e0; display: flex; align-items: center; gap: 6px; }
+    .panel-title span { color: #4a5580; font-weight: 400; }
+    .panel-body { padding: 14px; }
+    .panel-badge { font-size: 0.65rem; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+    .badge-live { background: #0a1f14; color: #00e5a0; border: 1px solid #00e5a0; }
+    .badge-analysis { background: #1a0a2e; color: #a855f7; border: 1px solid #a855f7; }
+    .badge-offline { background: #1a2040; color: #4a5580; border: 1px solid #2a3560; }
+
+    .zone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .zone-card { background: #111830; border-radius: 8px; padding: 12px; text-align: center; transition: all 0.3s; cursor: pointer; border: 1px solid #1a2040; }
+    .zone-card:hover { transform: scale(1.02); }
+    .zone-card.za { border-color: #00e5a0; background: #0a1f14; }
+    .zone-card.zb { border-color: #4a9eff; background: #0a1428; }
+    .zone-card.zc { border-color: #a855f7; background: #1a0a2e; }
+    .zone-card.zd { border-color: #f97316; background: #1f140a; }
+    .zone-name { font-size: 0.65rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .zone-truck-icon { font-size: 1.4rem; margin: 4px 0; }
+    .zone-count { font-size: 1.2rem; font-weight: 700; }
+    .zone-card.za .zone-count { color: #00e5a0; }
+    .zone-card.zb .zone-count { color: #4a9eff; }
+    .zone-card.zc .zone-count { color: #a855f7; }
+    .zone-card.zd .zone-count { color: #f97316; }
+    .zone-det-count { font-size: 0.65rem; color: #4a5580; margin-top: 2px; }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { font-size: 0.65rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; padding: 8px 12px; text-align: left; border-bottom: 1px solid #1a2040; background: #0a0e1a; }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid #111830; font-size: 0.78rem; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #111830; }
+
+    .zone-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
+    .tag-a { background: #0a1f14; color: #00e5a0; }
+    .tag-b { background: #0a1428; color: #4a9eff; }
+    .tag-c { background: #1a0a2e; color: #a855f7; }
+    .tag-d { background: #1f140a; color: #f97316; }
+    .class-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
+    .class-truck { background: #0a1428; color: #4a9eff; }
+    .class-car { background: #0a1f14; color: #00e5a0; }
+    .class-bus { background: #1a0a2e; color: #a855f7; }
+    .conf-bar { background: #1a2040; border-radius: 10px; height: 3px; width: 50px; display: inline-block; vertical-align: middle; margin-left: 5px; }
+    .conf-fill { height: 100%; border-radius: 10px; background: #4a9eff; }
+
+    .upload-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #111830; border-radius: 8px; margin-bottom: 8px; }
+    .upload-btn { padding: 6px 14px; border-radius: 5px; border: none; cursor: pointer; font-weight: 600; font-size: 0.75rem; transition: all 0.2s; white-space: nowrap; }
+    .btn-green { background: #00e5a0; color: #000; }
+    .btn-green:hover { background: #00c98a; }
+    .btn-purple { background: #a855f7; color: #fff; }
+    .btn-purple:hover { background: #9333ea; }
+    .btn-red { background: #ef4444; color: #fff; }
+    .btn-red:hover { background: #dc2626; }
+    .btn-orange { background: #f97316; color: #fff; }
+    .btn-orange:hover { background: #ea6c0a; }
+    .upload-info { flex: 1; }
+    .upload-status { font-size: 0.75rem; color: #4a5580; }
+    .counts-display { font-size: 0.72rem; color: #00e5a0; margin-top: 2px; }
+    .progress-bar { background: #1a2040; border-radius: 10px; height: 4px; margin-top: 6px; display: none; }
+    .progress-fill { height: 100%; border-radius: 10px; background: #a855f7; width: 0%; transition: width 0.3s; }
+    .video-result { font-size: 0.72rem; color: #a855f7; margin-top: 4px; display: none; }
+    .annotated-img { border-radius: 6px; display: none; border: 1px solid #00e5a0; max-height: 80px; object-fit: cover; }
+
+    .chart-container { position: relative; height: 160px; }
+    #page-analytics .chart-container { height: 220px; }
+
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-select { background: #111830; border: 1px solid #1a2040; color: #e0e0e0; padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; }
+    .filter-select:focus { outline: none; border-color: #00e5a0; }
+    .search-input { background: #111830; border: 1px solid #1a2040; color: #e0e0e0; padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; flex: 1; min-width: 160px; }
+    .search-input:focus { outline: none; border-color: #00e5a0; }
+    .search-input::placeholder { color: #4a5580; }
+    .export-btn { padding: 6px 12px; background: #111830; border: 1px solid #1a2040; color: #6b7aaa; border-radius: 6px; cursor: pointer; font-size: 0.78rem; transition: all 0.2s; }
+    .export-btn:hover { border-color: #00e5a0; color: #00e5a0; }
+
+    .settings-group-title { font-size: 0.65rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #1a2040; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #111830; }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 0.8rem; color: #e0e0e0; }
+    .setting-desc { font-size: 0.68rem; color: #4a5580; margin-top: 2px; }
+    .setting-control { display: flex; align-items: center; gap: 10px; }
+    .slider { -webkit-appearance: none; width: 120px; height: 3px; border-radius: 2px; background: #1a2040; outline: none; }
+    .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #00e5a0; cursor: pointer; }
+    .slider-val { font-size: 0.78rem; color: #00e5a0; width: 32px; text-align: right; }
+    .toggle { width: 36px; height: 20px; background: #1a2040; border-radius: 10px; position: relative; cursor: pointer; transition: background 0.2s; }
+    .toggle.on { background: #00e5a0; }
+    .toggle::after { content: ''; position: absolute; width: 14px; height: 14px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; }
+    .toggle.on::after { left: 19px; }
+    .text-input { background: #111830; border: 1px solid #1a2040; color: #e0e0e0; padding: 5px 8px; border-radius: 5px; font-size: 0.78rem; width: 140px; }
+    .text-input:focus { outline: none; border-color: #00e5a0; }
+
+    .zone-popup { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; }
+    .zone-popup.open { display: flex; }
+    .zone-popup-box { background: #0d1224; border: 1px solid #1a2040; border-radius: 12px; padding: 24px; width: 500px; max-height: 80vh; overflow-y: auto; }
+    .zone-popup-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .zone-popup-title { font-size: 1rem; font-weight: 700; }
+    .zone-popup-close { background: none; border: none; color: #4a5580; cursor: pointer; font-size: 1.2rem; }
+    .zone-popup-close:hover { color: #e0e0e0; }
+    .zone-stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .zone-stat { background: #111830; border-radius: 8px; padding: 12px; text-align: center; }
+    .zone-stat-val { font-size: 1.4rem; font-weight: 700; color: #00e5a0; }
+    .zone-stat-label { font-size: 0.65rem; color: #4a5580; margin-top: 3px; text-transform: uppercase; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #0d1224; border: 1px solid #1a2040; border-radius: 12px; padding: 24px; width: 400px; }
+    .modal h3 { color: #f97316; font-size: 0.95rem; margin-bottom: 16px; }
+    .modal-row { margin-bottom: 12px; }
+    .modal-label { font-size: 0.68rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .modal-select { width: 100%; background: #111830; border: 1px solid #1a2040; color: #e0e0e0; padding: 8px 10px; border-radius: 6px; font-size: 0.82rem; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .modal-actions button { flex: 1; padding: 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 0.82rem; }
+    .btn-cancel { background: #111830; color: #6b7aaa; }
+    .btn-confirm { background: #f97316; color: #fff; }
+    .modal-divider { border: none; border-top: 1px solid #1a2040; margin: 16px 0; }
+    .danger-zone { background: #1f0a0a; border: 1px solid #ef4444; border-radius: 8px; padding: 14px; }
+    .danger-title { font-size: 0.68rem; color: #ef4444; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+    .danger-btn { width: 100%; padding: 8px; background: transparent; border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; cursor: pointer; font-size: 0.78rem; margin-bottom: 6px; transition: all 0.2s; }
+    .danger-btn:hover { background: #ef4444; color: #fff; }
+
+    .statusbar { background: #0d1224; border-top: 1px solid #1a2040; padding: 6px 24px; display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+    .status-item { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: #4a5580; }
+    .sdot-green { width: 5px; height: 5px; border-radius: 50%; background: #00e5a0; }
+    .sdot-blue { width: 5px; height: 5px; border-radius: 50%; background: #4a9eff; }
+    .status-right { margin-left: auto; display: flex; gap: 20px; }
+
+    .content::-webkit-scrollbar { width: 3px; }
+    .content::-webkit-scrollbar-thumb { background: #1a2040; border-radius: 2px; }
+
+    .tracking-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 12px; }
+    .zone-card-lg { background: #111830; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #1a2040; }
+    .zone-card-lg.za { border-color: #00e5a0; background: #0a1f14; }
+    .zone-card-lg.zb { border-color: #4a9eff; background: #0a1428; }
+    .zone-card-lg.zc { border-color: #a855f7; background: #1a0a2e; }
+    .zone-card-lg.zd { border-color: #f97316; background: #1f140a; }
+    .zone-card-lg .zn { font-size: 0.65rem; color: #4a5580; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .zone-card-lg .zt { font-size: 1.8rem; margin: 4px 0; }
+    .zone-card-lg .zc2 { font-size: 1.6rem; font-weight: 700; }
+    .zone-card-lg.za .zc2 { color: #00e5a0; }
+    .zone-card-lg.zb .zc2 { color: #4a9eff; }
+    .zone-card-lg.zc .zc2 { color: #a855f7; }
+    .zone-card-lg.zd .zc2 { color: #f97316; }
+    .zone-card-lg .zl { font-size: 0.65rem; color: #4a5580; }
+
+    /* CAMERA */
+    .cam-feed-box { background: #111830; border-radius: 8px; overflow: hidden; position: relative; min-height: 140px; display: flex; align-items: center; justify-content: center; }
+    .cam-feed-box img { width: 100%; border-radius: 8px; display: block; }
+    .cam-offline { color: #4a5580; font-size: 0.78rem; text-align: center; padding: 20px; }
+    .cam-det-box { background: #111830; border-radius: 8px; padding: 10px; min-height: 140px; overflow-y: auto; }
+    .cam-det-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1a2040; }
+    .cam-det-item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <h2>Yard Vision</h2>
+    <p>Mission Control</p>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Navigation</div>
+    <div class="nav-item active" onclick="showPage('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Overview
+    </div>
+    <div class="nav-item" onclick="showPage('detections',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Detections
+    </div>
+    <div class="nav-item" onclick="showPage('tracking',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Live Tracking
+    </div>
+    <div class="nav-item" onclick="showPage('analytics',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analytics
+    </div>
+    <div class="nav-item" onclick="showPage('settings',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Settings
+    </div>
+  </div>
+  <div class="sidebar-bottom">
+    <button class="override-btn" onclick="document.getElementById('overrideModal').classList.add('open')">⚠️ Manual Override</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1 id="page-title">Yard Vision Dashboard</h1>
+      <div class="topbar-divider"></div>
+      <div class="status-pill"><div class="status-dot"></div>System: Running</div>
+    </div>
+    <div class="topbar-right">Last Updated: <span id="last-updated">--</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="metrics">
+        <div class="metric-card green"><div class="metric-label">Active Vehicles</div><div class="metric-value" id="active-vehicles">04</div><div class="metric-sub">GPS tracked</div><div class="metric-icon">🚛</div></div>
+        <div class="metric-card blue"><div class="metric-label">Total Detections</div><div class="metric-value" id="total-detections">0</div><div class="metric-sub">All time</div><div class="metric-icon">📡</div></div>
+        <div class="metric-card purple"><div class="metric-label">Active Zones</div><div class="metric-value" id="active-zones">0</div><div class="metric-sub">Zone occupancy</div><div class="metric-icon">🗺️</div></div>
+        <div class="metric-card orange"><div class="metric-label">Avg. Speed</div><div class="metric-value" id="avg-speed">--</div><div class="metric-sub">km/h across fleet</div><div class="metric-icon">⚡</div></div>
+      </div>
+
+      <!-- DETECTION INPUT -->
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="panel-header">
+          <div class="panel-title">🔍 Detection Input</div>
+          <span class="panel-badge badge-live">AI READY</span>
+        </div>
+        <div class="panel-body" style="padding:10px 14px;">
+          <div class="upload-row">
+            <button class="upload-btn btn-green" onclick="document.getElementById('image-input').click()">📷 Image</button>
+            <input type="file" id="image-input" accept="image/*" style="display:none;" />
+            <div class="upload-info">
+              <div class="upload-status" id="image-status">Select image for AI detection</div>
+              <div class="counts-display" id="counts-display"></div>
+            </div>
+            <img id="annotated" class="annotated-img" alt="Result" />
+          </div>
+          <div class="upload-row">
+            <button class="upload-btn btn-purple" onclick="document.getElementById('video-input').click()">🎥 Video</button>
+            <input type="file" id="video-input" accept="video/*" style="display:none;" />
+            <div class="upload-info">
+              <div class="upload-status" id="video-status">Select video for frame-by-frame detection</div>
+              <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+              <div class="video-result" id="video-result"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIVE CAMERA FEED -->
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="panel-header">
+          <div class="panel-title">📹 Live Camera Feed <span>— mobile via IP Webcam</span></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span class="panel-badge badge-offline" id="cam-status-badge">OFFLINE</span>
+            <button class="upload-btn btn-green" id="cam-start-btn" onclick="startCamera()" style="padding:4px 10px;font-size:0.7rem;">▶ Start</button>
+            <button class="upload-btn btn-red" id="cam-stop-btn" onclick="stopCamera()" style="padding:4px 10px;font-size:0.7rem;display:none;">■ Stop</button>
+            <button class="upload-btn btn-orange" onclick="captureFrame()" style="padding:4px 10px;font-size:0.7rem;">📸 Capture</button>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:10px 14px;">
+          <div class="grid-2" style="margin-bottom:0;">
+            <div>
+              <div style="font-size:0.65rem;color:#4a5580;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Live Feed + AI Detection</div>
+              <div class="cam-feed-box">
+                <img id="cam-feed" src="" alt="" style="display:none;" />
+                <div class="cam-offline" id="cam-offline">📹 Start camera to see live feed</div>
+              </div>
+              <div id="cam-info" style="font-size:0.72rem;color:#4a5580;margin-top:6px;">Camera offline</div>
+            </div>
+            <div>
+              <div style="font-size:0.65rem;color:#4a5580;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Live Detections</div>
+              <div class="cam-det-box" id="cam-detections">
+                <div style="color:#4a5580;font-size:0.78rem;padding:8px;">Start camera to see detections</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZONE MAP + TELEMETRY -->
+      <div class="grid-2">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header">
+            <div class="panel-title">🗺️ Zone Map <span>— click for details</span></div>
+            <span class="panel-badge badge-live">LIVE</span>
+          </div>
+          <div class="panel-body">
+            <div class="zone-grid">
+              <div class="zone-card za" onclick="showZoneDetail('Zone-A')">
+                <div class="zone-name">Zone-A</div><div class="zone-truck-icon">🚛</div>
+                <div class="zone-count" id="zone-a-count">0</div>
+                <div class="zone-det-count" id="zone-a-det">0 detections</div>
+              </div>
+              <div class="zone-card zb" onclick="showZoneDetail('Zone-B')">
+                <div class="zone-name">Zone-B</div><div class="zone-truck-icon">🚛</div>
+                <div class="zone-count" id="zone-b-count">0</div>
+                <div class="zone-det-count" id="zone-b-det">0 detections</div>
+              </div>
+              <div class="zone-card zc" onclick="showZoneDetail('Zone-C')">
+                <div class="zone-name">Zone-C</div><div class="zone-truck-icon">🚛</div>
+                <div class="zone-count" id="zone-c-count">0</div>
+                <div class="zone-det-count" id="zone-c-det">0 detections</div>
+              </div>
+              <div class="zone-card zd" onclick="showZoneDetail('Zone-D')">
+                <div class="zone-name">Zone-D</div><div class="zone-truck-icon">🚛</div>
+                <div class="zone-count" id="zone-d-count">0</div>
+                <div class="zone-det-count" id="zone-d-det">0 detections</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header">
+            <div class="panel-title">📡 Live Telemetry</div>
+            <span class="panel-badge badge-live">LIVE</span>
+          </div>
+          <div class="panel-body" style="padding:0;">
+            <table class="data-table">
+              <thead><tr><th>Vehicle</th><th>Zone</th><th>Speed</th><th>GPS</th></tr></thead>
+              <tbody id="gps-body"><tr><td colspan="4" style="color:#4a5580;padding:12px;">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETECTIONS -->
+    <div class="page" id="page-detections">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🔍 All Detections</div>
+          <button class="export-btn" onclick="exportCSV()">⬇️ Export CSV</button>
+        </div>
+        <div class="panel-body">
+          <div class="filter-bar">
+            <input class="search-input" id="search-ocr" placeholder="🔍 Search OCR text..." oninput="filterDetections()" />
+            <select class="filter-select" id="filter-zone" onchange="filterDetections()">
+              <option value="">All Zones</option>
+              <option>Zone-A</option><option>Zone-B</option><option>Zone-C</option><option>Zone-D</option>
+            </select>
+            <select class="filter-select" id="filter-class" onchange="filterDetections()">
+              <option value="">All Classes</option>
+              <option>truck</option><option>car</option><option>bus</option>
+            </select>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>ID</th><th>Class</th><th>Confidence</th><th>OCR Text</th><th>Zone</th><th>Lat</th><th>Lng</th><th>Timestamp</th></tr></thead>
+          <tbody id="all-detections-body"><tr><td colspan="8" style="color:#4a5580;padding:12px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LIVE TRACKING -->
+    <div class="page" id="page-tracking">
+      <div class="metrics">
+        <div class="metric-card green"><div class="metric-label">Active Vehicles</div><div class="metric-value" id="t-vehicles">04</div><div class="metric-sub">GPS locked</div><div class="metric-icon">🚛</div></div>
+        <div class="metric-card blue"><div class="metric-label">Avg Speed</div><div class="metric-value" id="t-speed">--</div><div class="metric-sub">km/h fleet avg</div><div class="metric-icon">⚡</div></div>
+        <div class="metric-card purple"><div class="metric-label">Max Speed</div><div class="metric-value" id="t-maxspeed">--</div><div class="metric-sub">km/h highest</div><div class="metric-icon">🏎️</div></div>
+        <div class="metric-card orange"><div class="metric-label">Zones Active</div><div class="metric-value" id="t-zones">4</div><div class="metric-sub">of 4 total</div><div class="metric-icon">🗺️</div></div>
+      </div>
+      <div class="tracking-grid">
+        <div class="zone-card-lg za"><div class="zn">Zone-A — Loading</div><div class="zt">🚛</div><div class="zc2" id="t-zone-a">0</div><div class="zl">vehicles</div></div>
+        <div class="zone-card-lg zb"><div class="zn">Zone-B — Unloading</div><div class="zt">🚛</div><div class="zc2" id="t-zone-b">0</div><div class="zl">vehicles</div></div>
+        <div class="zone-card-lg zc"><div class="zn">Zone-C — Parking</div><div class="zt">🚛</div><div class="zc2" id="t-zone-c">0</div><div class="zl">vehicles</div></div>
+        <div class="zone-card-lg zd"><div class="zn">Zone-D — Exit Gate</div><div class="zt">🚛</div><div class="zc2" id="t-zone-d">0</div><div class="zl">vehicles</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:12px;">
+        <div class="panel-header">
+          <div class="panel-title">📡 Full Vehicle Telemetry</div>
+          <span class="panel-badge badge-live">LIVE</span>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <table class="data-table">
+            <thead><tr><th>Vehicle ID</th><th>Zone</th><th>Speed</th><th>Heading</th><th>Latitude</th><th>Longitude</th><th>Last Update</th></tr></thead>
+            <tbody id="tracking-body"><tr><td colspan="7" style="color:#4a5580;padding:12px;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header"><div class="panel-title">📊 Live Speed History</div><span class="panel-badge badge-live">LIVE</span></div>
+          <div class="panel-body"><div class="chart-container"><canvas id="speedChart"></canvas></div></div>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header"><div class="panel-title">🥧 Zone Distribution</div></div>
+          <div class="panel-body"><div class="chart-container"><canvas id="trackZoneChart"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="page" id="page-analytics">
+      <div class="metrics">
+        <div class="metric-card green"><div class="metric-label">Total Detections</div><div class="metric-value" id="a-total">0</div><div class="metric-sub">All time</div><div class="metric-icon">📊</div></div>
+        <div class="metric-card blue"><div class="metric-label">Top Zone</div><div class="metric-value" id="a-top-zone" style="font-size:1rem;">--</div><div class="metric-sub">most detections</div><div class="metric-icon">🏆</div></div>
+        <div class="metric-card purple"><div class="metric-label">Top Vehicle</div><div class="metric-value" id="a-top-type" style="font-size:1rem;">--</div><div class="metric-sub">most detected</div><div class="metric-icon">🚛</div></div>
+        <div class="metric-card orange"><div class="metric-label">Peak Hour</div><div class="metric-value" id="a-peak-hour" style="font-size:1rem;">--</div><div class="metric-sub">most activity</div><div class="metric-icon">⏰</div></div>
+      </div>
+      <div class="grid-3">
+        <div class="panel" style="margin-bottom:0;"><div class="panel-header"><div class="panel-title">📊 By Zone</div></div><div class="panel-body"><div class="chart-container"><canvas id="zoneChart"></canvas></div></div></div>
+        <div class="panel" style="margin-bottom:0;"><div class="panel-header"><div class="panel-title">🥧 Vehicle Types</div></div><div class="panel-body"><div class="chart-container"><canvas id="typeChart"></canvas></div></div></div>
+        <div class="panel" style="margin-bottom:0;"><div class="panel-header"><div class="panel-title">📈 Hourly</div></div><div class="panel-body"><div class="chart-container"><canvas id="timeChart"></canvas></div></div></div>
+      </div>
+      <div style="height:12px;"></div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header"><div class="panel-title">📋 Detection Summary</div></div>
+        <div class="panel-body" style="padding:0;">
+          <table class="data-table">
+            <thead><tr><th>Zone</th><th>Total Detections</th><th>% Share</th><th>Status</th></tr></thead>
+            <tbody id="analytics-summary-body"><tr><td colspan="4" style="color:#4a5580;padding:12px;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="grid-2">
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header"><div class="panel-title">⚙️ Detection Settings</div></div>
+          <div class="panel-body">
+            <div class="settings-group-title">AI Detection</div>
+            <div class="setting-row"><div><div class="setting-label">Confidence Threshold</div><div class="setting-desc">Min confidence to save detection</div></div><div class="setting-control"><input type="range" class="slider" min="10" max="90" value="50" oninput="document.getElementById('conf-val').textContent=this.value+'%'" /><span class="slider-val" id="conf-val">50%</span></div></div>
+            <div class="setting-row"><div><div class="setting-label">Frame Interval</div><div class="setting-desc">Process every Nth frame in video</div></div><div class="setting-control"><input type="range" class="slider" min="5" max="60" value="30" oninput="document.getElementById('frame-val').textContent=this.value" /><span class="slider-val" id="frame-val">30</span></div></div>
+            <div class="setting-row"><div><div class="setting-label">OCR Detection</div><div class="setting-desc">Enable EasyOCR text reading</div></div><div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div></div>
+            <div class="setting-row"><div><div class="setting-label">GPU Acceleration</div><div class="setting-desc">Use GPU if available</div></div><div class="setting-control"><div class="toggle" onclick="this.classList.toggle('on')"></div></div></div>
+            <div class="setting-row"><div><div class="setting-label">Auto Save Detections</div><div class="setting-desc">Save all detections to database</div></div><div class="setting-control"><div class="toggle on" onclick="this.classList.toggle('on')"></div></div></div>
+            <div class="setting-row"><div><div class="setting-label">Camera Detection Interval</div><div class="setting-desc">Run AI every Nth camera frame</div></div><div class="setting-control"><input type="range" class="slider" min="5" max="30" value="10" oninput="document.getElementById('cam-interval-val').textContent=this.value" /><span class="slider-val" id="cam-interval-val">10</span></div></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0;">
+          <div class="panel-header"><div class="panel-title">🗺️ Zone Configuration</div></div>
+          <div class="panel-body">
+            <div class="settings-group-title">Zone Names</div>
+            <div class="setting-row"><div><div class="setting-label">Zone A</div></div><input type="text" class="text-input" value="Loading Bay" /></div>
+            <div class="setting-row"><div><div class="setting-label">Zone B</div></div><input type="text" class="text-input" value="Unloading Bay" /></div>
+            <div class="setting-row"><div><div class="setting-label">Zone C</div></div><input type="text" class="text-input" value="Parking Area" /></div>
+            <div class="setting-row"><div><div class="setting-label">Zone D</div></div><input type="text" class="text-input" value="Exit Gate" /></div>
+            <div class="settings-group-title" style="margin-top:16px;">Camera</div>
+            <div class="setting-row"><div><div class="setting-label">Camera URL</div><div class="setting-desc">IP Webcam stream address</div></div><input type="text" class="text-input" value="10.194.223.22:8080" style="width:160px;" /></div>
+            <button class="upload-btn btn-green" style="width:100%;margin-top:12px;">💾 Save Settings</button>
+          </div>
+        </div>
+      </div>
+      <div style="height:12px;"></div>
+      <div class="panel" style="margin-bottom:0;">
+        <div class="panel-header"><div class="panel-title">📋 System Information</div></div>
+        <div class="panel-body">
+          <div class="settings-group-title">About</div>
+          <div class="grid-2" style="margin-bottom:0;">
+            <div>
+              <div class="setting-row"><div><div class="setting-label">Project</div></div><div style="color:#4a5580;font-size:0.82rem;">Yard Vision v1.0.0</div></div>
+              <div class="setting-row"><div><div class="setting-label">AI Model</div></div><div style="color:#00e5a0;font-size:0.82rem;">YOLOv8 Nano</div></div>
+              <div class="setting-row"><div><div class="setting-label">OCR Engine</div></div><div style="color:#00e5a0;font-size:0.82rem;">EasyOCR v1.7</div></div>
+              <div class="setting-row"><div><div class="setting-label">Camera</div></div><div style="color:#00e5a0;font-size:0.82rem;">IP Webcam (Mobile)</div></div>
+            </div>
+            <div>
+              <div class="setting-row"><div><div class="setting-label">Backend</div></div><div style="color:#4a9eff;font-size:0.82rem;">FastAPI + Uvicorn</div></div>
+              <div class="setting-row"><div><div class="setting-label">Container</div></div><div style="color:#4a9eff;font-size:0.82rem;">Docker + Docker Compose</div></div>
+              <div class="setting-row"><div><div class="setting-label">GPS</div></div><div style="color:#4a9eff;font-size:0.82rem;">Simulated (PySerial ready)</div></div>
+              <div class="setting-row"><div><div class="setting-label">Status</div></div><div><span style="background:#0a1f14;color:#00e5a0;padding:2px 8px;border-radius:4px;font-size:0.75rem;border:1px solid #00e5a0;">RUNNING</span></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <div class="status-item"><div class="sdot-green"></div>GPS: LOCKED</div>
+    <div class="status-item"><div class="sdot-blue"></div>SENSORS: ACTIVE</div>
+    <div class="status-item"><div class="sdot-green"></div>DB: CONNECTED</div>
+    <div class="status-item" id="cam-statusbar">📹 CAM: OFFLINE</div>
+    <div class="status-right">
+      <div class="status-item">LATENCY: 14MS</div>
+      <div class="status-item">UPTIME: 99.98%</div>
+    </div>
+  </div>
+</div>
+
+<!-- ZONE DETAIL POPUP -->
+<div class="zone-popup" id="zonePopup">
+  <div class="zone-popup-box">
+    <div class="zone-popup-header">
+      <div class="zone-popup-title" id="popup-zone-title">Zone Details</div>
+      <button class="zone-popup-close" onclick="document.getElementById('zonePopup').classList.remove('open')">✕</button>
+    </div>
+    <div class="zone-stat-grid">
+      <div class="zone-stat"><div class="zone-stat-val" id="popup-gps-count">0</div><div class="zone-stat-label">Live Vehicles</div></div>
+      <div class="zone-stat"><div class="zone-stat-val" id="popup-det-count">0</div><div class="zone-stat-label">Total Detections</div></div>
+      <div class="zone-stat"><div class="zone-stat-val" id="popup-avg-speed">0</div><div class="zone-stat-label">Avg Speed km/h</div></div>
+    </div>
+    <div style="font-size:0.72rem;color:#4a5580;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Recent Detections</div>
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>Class</th><th>Confidence</th><th>OCR Text</th><th>Time</th></tr></thead>
+      <tbody id="popup-detections"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- OVERRIDE MODAL -->
+<div class="modal-overlay" id="overrideModal">
+  <div class="modal">
+    <h3>⚠️ Manual Override</h3>
+    <div class="modal-row">
+      <div class="modal-label">Select Vehicle</div>
+      <select class="modal-select" id="override-vehicle">
+        <option>TRUCK-001</option><option>TRUCK-002</option><option>TRUCK-003</option><option>TRUCK-004</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">Assign to Zone</div>
+      <select class="modal-select" id="override-zone">
+        <option>Zone-A</option><option>Zone-B</option><option>Zone-C</option><option>Zone-D</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('overrideModal').classList.remove('open')">Cancel</button>
+      <button class="btn-confirm" onclick="applyOverride()">Apply Override</button>
+    </div>
+    <hr class="modal-divider" />
+    <div class="danger-zone">
+      <div class="danger-title">⚠️ Danger Zone</div>
+      <button class="danger-btn" onclick="clearDetections()">🗑️ Clear All Detections</button>
+      <button class="danger-btn" onclick="resetDatabase()">♻️ Reset Database</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let allDetectionsData = [];
+  let gpsData = [];
+  let cameraInterval = null;
+
+  const chartOpts = { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a5580', font: { size: 9 } }, grid: { color: '#111830' } }, y: { ticks: { color: '#4a5580', font: { size: 9 } }, grid: { color: '#111830' }, beginAtZero: true } } };
+
+  const zoneChart = new Chart(document.getElementById('zoneChart'), {
+    type: 'bar',
+    data: { labels: ['Zone-A','Zone-B','Zone-C','Zone-D'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#00e5a0','#4a9eff','#a855f7','#f97316'], borderRadius: 4 }] },
+    options: chartOpts
+  });
+  const typeChart = new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: { labels: ['Truck','Car','Bus'], datasets: [{ data: [0,0,0], backgroundColor: ['#4a9eff','#00e5a0','#a855f7'], borderWidth: 0 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { color: '#4a5580', font: { size: 9 }, boxWidth: 10 } } } }
+  });
+  const timeChart = new Chart(document.getElementById('timeChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: '#4a9eff', backgroundColor: 'rgba(74,158,255,0.08)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#4a9eff' }] },
+    options: chartOpts
+  });
+  const speedChart = new Chart(document.getElementById('speedChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'TRUCK-001', data: [], borderColor: '#00e5a0', tension: 0.4, pointRadius: 2, fill: false },
+      { label: 'TRUCK-002', data: [], borderColor: '#4a9eff', tension: 0.4, pointRadius: 2, fill: false },
+      { label: 'TRUCK-003', data: [], borderColor: '#a855f7', tension: 0.4, pointRadius: 2, fill: false },
+      { label: 'TRUCK-004', data: [], borderColor: '#f97316', tension: 0.4, pointRadius: 2, fill: false },
+    ]},
+    options: { maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { color: '#4a5580', font: { size: 9 }, boxWidth: 10 } } }, scales: { x: { ticks: { color: '#4a5580', font: { size: 9 } }, grid: { color: '#111830' } }, y: { ticks: { color: '#4a5580', font: { size: 9 } }, grid: { color: '#111830' }, beginAtZero: true } } }
+  });
+  const trackZoneChart = new Chart(document.getElementById('trackZoneChart'), {
+    type: 'doughnut',
+    data: { labels: ['Zone-A','Zone-B','Zone-C','Zone-D'], datasets: [{ data: [0,0,0,0], backgroundColor: ['#00e5a0','#4a9eff','#a855f7','#f97316'], borderWidth: 0 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right', labels: { color: '#4a5580', font: { size: 9 }, boxWidth: 10 } } } }
+  });
+
+  const speedHistory = { labels: [], 'TRUCK-001': [], 'TRUCK-002': [], 'TRUCK-003': [], 'TRUCK-004': [] };
+  const tagMap = { 'Zone-A':'tag-a','Zone-B':'tag-b','Zone-C':'tag-c','Zone-D':'tag-d' };
+
+  function showPage(page, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    el.classList.add('active');
+    const titles = { overview:'Yard Vision Dashboard', detections:'Detections', tracking:'Live Tracking', analytics:'Analytics', settings:'Settings' };
+    document.getElementById('page-title').textContent = titles[page];
+  }
+
+  function showZoneDetail(zone) {
+    document.getElementById('zonePopup').classList.add('open');
+    document.getElementById('popup-zone-title').textContent = zone + ' — Details';
+    const zoneVehicles = gpsData.filter(v => v.zone === zone);
+    document.getElementById('popup-gps-count').textContent = zoneVehicles.length;
+    const avgSpd = zoneVehicles.length ? (zoneVehicles.reduce((a,b) => a+b.speed_kmh,0)/zoneVehicles.length).toFixed(1) : 0;
+    document.getElementById('popup-avg-speed').textContent = avgSpd;
+    const zoneDets = allDetectionsData.filter(d => d.zone === zone);
+    document.getElementById('popup-det-count').textContent = zoneDets.length;
+    document.getElementById('popup-detections').innerHTML = zoneDets.slice(0,10).map(d => `
+      <tr>
+        <td style="color:#4a5580;">#${d.id}</td>
+        <td><span class="class-badge class-${d.class_name}">${d.class_name}</span></td>
+        <td>${Math.round(d.confidence*100)}%</td>
+        <td style="color:#6b7aaa;">${d.ocr_text||'—'}</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${new Date(d.timestamp).toLocaleTimeString()}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="5" style="color:#4a5580;padding:10px;">No detections in this zone</td></tr>';
+  }
+
+  // IMAGE UPLOAD
+  document.getElementById('image-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('image-status').textContent = '⏳ Detecting...';
+    document.getElementById('counts-display').textContent = '';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/detect', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.annotated_image) {
+        const img = document.getElementById('annotated');
+        img.src = 'data:image/jpeg;base64,' + data.annotated_image;
+        img.style.display = 'inline-block';
+      }
+      if (data.vehicle_counts) {
+        const counts = Object.entries(data.vehicle_counts).map(([cls,c]) => `${cls}: ${c}`).join(' | ');
+        document.getElementById('counts-display').textContent = '🚛 ' + counts;
+      }
+      document.getElementById('image-status').textContent = `✅ Detected ${data.total_detected} object(s)`;
+      loadData();
+    } catch { document.getElementById('image-status').textContent = '❌ Detection failed'; }
+  });
+
+  // VIDEO UPLOAD
+  document.getElementById('video-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('video-status').textContent = `⏳ Processing...`;
+    document.getElementById('progress-bar').style.display = 'block';
+    let progress = 0;
+    const interval = setInterval(() => { progress = Math.min(progress+2,90); document.getElementById('progress-fill').style.width = progress+'%'; }, 500);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/detect-video', { method: 'POST', body: formData });
+      const data = await res.json();
+      clearInterval(interval);
+      document.getElementById('progress-fill').style.width = '100%';
+      setTimeout(() => { document.getElementById('progress-bar').style.display = 'none'; document.getElementById('progress-fill').style.width = '0%'; }, 500);
+      document.getElementById('video-status').textContent = `✅ Done! Found ${data.total_detected} detection(s)`;
+      document.getElementById('video-result').style.display = 'block';
+      document.getElementById('video-result').textContent = `Duration: ${data.video_info.duration_sec}s | Frames: ${data.video_info.processed_frames} | Found: ${data.total_detected}`;
+      loadData();
+    } catch { clearInterval(interval); document.getElementById('video-status').textContent = '❌ Video processing failed'; }
+  });
+
+  // CAMERA FUNCTIONS
+  async function startCamera() {
+    await fetch('/camera/start', { method: 'POST' });
+    document.getElementById('cam-start-btn').style.display = 'none';
+    document.getElementById('cam-stop-btn').style.display = 'inline-block';
+    const badge = document.getElementById('cam-status-badge');
+    badge.textContent = 'LIVE';
+    badge.className = 'panel-badge badge-live';
+    document.getElementById('cam-statusbar').textContent = '📹 CAM: LIVE';
+    document.getElementById('cam-statusbar').style.color = '#00e5a0';
+    cameraInterval = setInterval(loadCameraFrame, 1000);
+  }
+
+  async function stopCamera() {
+    await fetch('/camera/stop', { method: 'POST' });
+    document.getElementById('cam-start-btn').style.display = 'inline-block';
+    document.getElementById('cam-stop-btn').style.display = 'none';
+    const badge = document.getElementById('cam-status-badge');
+    badge.textContent = 'OFFLINE';
+    badge.className = 'panel-badge badge-offline';
+    document.getElementById('cam-statusbar').textContent = '📹 CAM: OFFLINE';
+    document.getElementById('cam-statusbar').style.color = '';
+    clearInterval(cameraInterval);
+    document.getElementById('cam-feed').style.display = 'none';
+    document.getElementById('cam-offline').style.display = 'block';
+    document.getElementById('cam-info').textContent = 'Camera offline';
+  }
+
+  async function loadCameraFrame() {
+    try {
+      const res = await fetch('/camera/frame');
+      const data = await res.json();
+      if (data.frame) {
+        const img = document.getElementById('cam-feed');
+        img.src = 'data:image/jpeg;base64,' + data.frame;
+        img.style.display = 'block';
+        document.getElementById('cam-offline').style.display = 'none';
+
+        const counts = data.counts || {};
+        const countText = Object.keys(counts).length
+          ? Object.entries(counts).map(([cls,c]) => `<span class="class-badge class-${cls}">${cls}: ${c}</span>`).join(' ')
+          : 'No vehicles detected';
+        document.getElementById('cam-info').innerHTML = countText;
+
+        const dets = data.detections || [];
+        document.getElementById('cam-detections').innerHTML = dets.length
+          ? dets.map(d => `
+            <div class="cam-det-item">
+              <span class="class-badge class-${d.class}">${d.class}</span>
+              <span style="color:#4a5580;font-size:0.75rem;">${Math.round(d.confidence*100)}%</span>
+              <span style="color:#6b7aaa;font-size:0.72rem;flex:1;">${d.ocr_text||'—'}</span>
+            </div>
+          `).join('')
+          : '<div style="color:#4a5580;font-size:0.78rem;padding:8px;">No vehicles in frame — point camera at vehicles</div>';
+      }
+    } catch(e) { console.log('Camera frame error', e); }
+  }
+
+  async function captureFrame() {
+    try {
+      const res = await fetch('/camera/capture', { method: 'POST' });
+      const data = await res.json();
+      if (data.total_captured) {
+        alert(`✅ Captured ${data.total_captured} detection(s) saved to database!`);
+        loadData();
+      } else {
+        alert('⚠️ No detections to capture — point camera at vehicles first!');
+      }
+    } catch { alert('❌ Capture failed — start camera first'); }
+  }
+
+  async function checkCameraStatus() {
+    try {
+      const res = await fetch('/camera/status');
+      const data = await res.json();
+      if (data.running) {
+        document.getElementById('cam-start-btn').style.display = 'none';
+        document.getElementById('cam-stop-btn').style.display = 'inline-block';
+        const badge = document.getElementById('cam-status-badge');
+        badge.textContent = 'LIVE';
+        badge.className = 'panel-badge badge-live';
+        document.getElementById('cam-statusbar').textContent = '📹 CAM: LIVE';
+        document.getElementById('cam-statusbar').style.color = '#00e5a0';
+        cameraInterval = setInterval(loadCameraFrame, 1000);
+      }
+    } catch(e) {}
+  }
+
+  // GPS
+  async function loadGPS() {
+    const res = await fetch('/gps/live');
+    const data = await res.json();
+    gpsData = data.vehicles;
+    const zoneCounts = { 'Zone-A':0,'Zone-B':0,'Zone-C':0,'Zone-D':0 };
+    let totalSpeed=0, maxSpeed=0;
+    data.vehicles.forEach(v => {
+      if (zoneCounts[v.zone]!==undefined) zoneCounts[v.zone]++;
+      totalSpeed += v.speed_kmh;
+      if (v.speed_kmh > maxSpeed) maxSpeed = v.speed_kmh;
+    });
+    document.getElementById('zone-a-count').textContent = zoneCounts['Zone-A'];
+    document.getElementById('zone-b-count').textContent = zoneCounts['Zone-B'];
+    document.getElementById('zone-c-count').textContent = zoneCounts['Zone-C'];
+    document.getElementById('zone-d-count').textContent = zoneCounts['Zone-D'];
+    const avg = data.vehicles.length ? (totalSpeed/data.vehicles.length).toFixed(1) : '--';
+    document.getElementById('active-vehicles').textContent = String(data.total_vehicles).padStart(2,'0');
+    document.getElementById('avg-speed').textContent = avg;
+    document.getElementById('t-vehicles').textContent = String(data.total_vehicles).padStart(2,'0');
+    document.getElementById('t-speed').textContent = avg;
+    document.getElementById('t-maxspeed').textContent = maxSpeed.toFixed(1);
+    document.getElementById('t-zone-a').textContent = zoneCounts['Zone-A'];
+    document.getElementById('t-zone-b').textContent = zoneCounts['Zone-B'];
+    document.getElementById('t-zone-c').textContent = zoneCounts['Zone-C'];
+    document.getElementById('t-zone-d').textContent = zoneCounts['Zone-D'];
+    document.getElementById('gps-body').innerHTML = data.vehicles.map(v => `
+      <tr>
+        <td style="font-weight:700;font-size:0.78rem;">${v.vehicle_id}</td>
+        <td><span class="zone-tag ${tagMap[v.zone]||'tag-a'}">${v.zone}</span></td>
+        <td style="font-size:0.78rem;">${v.speed_kmh} km/h</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${v.latitude}, ${v.longitude}</td>
+      </tr>
+    `).join('');
+    document.getElementById('tracking-body').innerHTML = data.vehicles.map(v => `
+      <tr>
+        <td style="font-weight:700;color:#00e5a0;font-size:0.78rem;">${v.vehicle_id}</td>
+        <td><span class="zone-tag ${tagMap[v.zone]||'tag-a'}">${v.zone}</span></td>
+        <td style="font-size:0.78rem;">${v.speed_kmh} km/h</td>
+        <td style="color:#4a5580;font-size:0.78rem;">${v.heading}°</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${v.latitude}</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${v.longitude}</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${new Date(v.timestamp).toLocaleTimeString()}</td>
+      </tr>
+    `).join('');
+    const timeLabel = new Date().toLocaleTimeString();
+    if (speedHistory.labels.length > 10) { speedHistory.labels.shift(); ['TRUCK-001','TRUCK-002','TRUCK-003','TRUCK-004'].forEach(t => speedHistory[t].shift()); }
+    speedHistory.labels.push(timeLabel);
+    data.vehicles.forEach(v => { if (speedHistory[v.vehicle_id]!==undefined) speedHistory[v.vehicle_id].push(v.speed_kmh); });
+    speedChart.data.labels = speedHistory.labels;
+    speedChart.data.datasets[0].data = speedHistory['TRUCK-001'];
+    speedChart.data.datasets[1].data = speedHistory['TRUCK-002'];
+    speedChart.data.datasets[2].data = speedHistory['TRUCK-003'];
+    speedChart.data.datasets[3].data = speedHistory['TRUCK-004'];
+    speedChart.update();
+    trackZoneChart.data.datasets[0].data = [zoneCounts['Zone-A'],zoneCounts['Zone-B'],zoneCounts['Zone-C'],zoneCounts['Zone-D']];
+    trackZoneChart.update();
+  }
+
+  async function loadStatus() {
+    const res = await fetch('/status');
+    const data = await res.json();
+    document.getElementById('total-detections').textContent = data.total_detections;
+    document.getElementById('active-zones').textContent = data.active_zones.length;
+    document.getElementById('a-total').textContent = data.total_detections;
+    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+  }
+
+  async function loadDetections() {
+    const res = await fetch('/detections');
+    const data = await res.json();
+    allDetectionsData = data.detections || [];
+    filterDetections();
+    const zoneDet = { 'Zone-A':0,'Zone-B':0,'Zone-C':0,'Zone-D':0 };
+    allDetectionsData.forEach(d => { if (zoneDet[d.zone]!==undefined) zoneDet[d.zone]++; });
+    document.getElementById('zone-a-det').textContent = zoneDet['Zone-A'] + ' detections';
+    document.getElementById('zone-b-det').textContent = zoneDet['Zone-B'] + ' detections';
+    document.getElementById('zone-c-det').textContent = zoneDet['Zone-C'] + ' detections';
+    document.getElementById('zone-d-det').textContent = zoneDet['Zone-D'] + ' detections';
+  }
+
+  function filterDetections() {
+    const search = document.getElementById('search-ocr').value.toLowerCase();
+    const zone = document.getElementById('filter-zone').value;
+    const cls = document.getElementById('filter-class').value;
+    const filtered = allDetectionsData.filter(d =>
+      (!search || (d.ocr_text||'').toLowerCase().includes(search)) &&
+      (!zone || d.zone===zone) && (!cls || d.class_name===cls)
+    );
+    const tbody = document.getElementById('all-detections-body');
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8" style="color:#4a5580;padding:12px;">No records found</td></tr>'; return; }
+    tbody.innerHTML = filtered.map(d => `
+      <tr>
+        <td style="color:#4a5580;">#${d.id}</td>
+        <td><span class="class-badge class-${d.class_name}">${d.class_name}</span></td>
+        <td>${Math.round(d.confidence*100)}%<span class="conf-bar"><span class="conf-fill" style="width:${d.confidence*100}%"></span></span></td>
+        <td style="color:#6b7aaa;">${d.ocr_text||'—'}</td>
+        <td><span class="zone-tag ${tagMap[d.zone]||'tag-a'}">${d.zone||'—'}</span></td>
+        <td style="color:#4a5580;font-size:0.72rem;">${d.latitude||'—'}</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${d.longitude||'—'}</td>
+        <td style="color:#4a5580;font-size:0.72rem;">${new Date(d.timestamp).toLocaleString()}</td>
+      </tr>
+    `).join('');
+  }
+
+  function exportCSV() {
+    const headers = ['ID','Class','Confidence','OCR Text','Zone','Timestamp'];
+    const rows = allDetectionsData.map(d => [d.id,d.class_name,Math.round(d.confidence*100)+'%',d.ocr_text||'',d.zone||'',d.timestamp]);
+    const csv = [headers,...rows].map(r=>r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = `yard-vision-${Date.now()}.csv`;
+    a.click();
+  }
+
+  async function loadAnalytics() {
+    try {
+      const res = await fetch('/analytics');
+      const data = await res.json();
+      zoneChart.data.labels = data.zones.map(z=>z.zone);
+      zoneChart.data.datasets[0].data = data.zones.map(z=>z.count);
+      zoneChart.update();
+      typeChart.data.labels = data.types.map(t=>t.type);
+      typeChart.data.datasets[0].data = data.types.map(t=>t.count);
+      typeChart.update();
+      timeChart.data.labels = data.hourly.map(h=>h.hour);
+      timeChart.data.datasets[0].data = data.hourly.map(h=>h.count);
+      timeChart.update();
+      if (data.zones.length) { const top=data.zones.reduce((a,b)=>a.count>b.count?a:b); document.getElementById('a-top-zone').textContent=top.zone; }
+      if (data.types.length) { const top=data.types.reduce((a,b)=>a.count>b.count?a:b); document.getElementById('a-top-type').textContent=top.type; }
+      if (data.hourly.length) { const top=data.hourly.reduce((a,b)=>a.count>b.count?a:b); document.getElementById('a-peak-hour').textContent=top.hour; }
+      const total = data.zones.reduce((s,z)=>s+z.count,0);
+      document.getElementById('analytics-summary-body').innerHTML = data.zones.map(z => `
+        <tr>
+          <td><span class="zone-tag ${tagMap[z.zone]||'tag-a'}">${z.zone}</span></td>
+          <td style="color:#e0e0e0;">${z.count}</td>
+          <td style="color:#4a5580;">${total ? Math.round(z.count/total*100) : 0}%</td>
+          <td><span style="background:#0a1f14;color:#00e5a0;padding:2px 8px;border-radius:4px;font-size:0.7rem;">Active</span></td>
+        </tr>
+      `).join('');
+    } catch(e) { console.log('Analytics error',e); }
+  }
+
+  function applyOverride() {
+    const v = document.getElementById('override-vehicle').value;
+    const z = document.getElementById('override-zone').value;
+    alert(`✅ ${v} manually assigned to ${z}`);
+    document.getElementById('overrideModal').classList.remove('open');
+  }
+
+  async function clearDetections() {
+    if (!confirm('Clear all detections?')) return;
+    await fetch('/detections', { method: 'DELETE' });
+    document.getElementById('overrideModal').classList.remove('open');
+    loadData();
+  }
+
+  async function resetDatabase() {
+    if (!confirm('Reset entire database?')) return;
+    await fetch('/reset', { method: 'DELETE' });
+    document.getElementById('overrideModal').classList.remove('open');
+    loadData();
+  }
+
+  async function loadData() {
+    await Promise.all([loadStatus(), loadDetections(), loadGPS(), loadAnalytics()]);
+  }
+
+  checkCameraStatus();
+  loadData();
+  setInterval(loadData, 5000);
+</script>
+</body>
+</html>
